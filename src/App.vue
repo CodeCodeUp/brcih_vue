@@ -17,22 +17,16 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
         />
+        <el-select
+          v-model="changeType"
+          placeholder="变动类型"
+          style="margin-right: 10px; margin-left: 10px"
+        >
+          <el-option label="全部" value=""></el-option>
+          <el-option label="增持" value="增持"></el-option>
+          <el-option label="减持" value="减持"></el-option>
+        </el-select>
         <el-button type="primary" @click="fetchData" :loading="loading">Search</el-button>
-      </div>
-    </div>
-
-    <div class="data-summary" v-if="stockData.length > 0">
-      <div class="summary-item">
-        <span class="label">total</span>
-        <span class="value">{{ totalCount }}</span>
-      </div>
-      <div class="summary-item">
-        <span class="label">Increase</span>
-        <span class="value increase">{{ getIncreaseCount() }}</span>
-      </div>
-      <div class="summary-item">
-        <span class="label">Decrease</span>
-        <span class="value decrease">{{ getDecreaseCount() }}</span>
       </div>
     </div>
 
@@ -44,6 +38,7 @@
         :header-cell-style="headerStyle"
         v-loading="loading"
         @expand-change="handleExpandChange"
+        @sort-change="handleSortChange"
         :row-key="(row: any) => row.stockCode + row.tradeDate"
       >
         <el-table-column type="expand">
@@ -97,13 +92,13 @@
         <el-table-column prop="tradeDate" label="交易日期" width="120" />
         <el-table-column prop="stockCode" label="股票代码" width="120" />
         <el-table-column prop="stockName" label="股票名称" width="120" />
-        <el-table-column label="变动数量" width="160">
+        <el-table-column prop="changeAmount" label="变动数量" width="160" sortable>
           <template #default="scope">
-            <span v-if="scope.row.totalIncrease > 0" class="increase">
-              +{{ formatNumber(scope.row.totalIncrease) }}
+            <span v-if="scope.row.totalIncrease != 0" class="increase">
+              {{ formatNumber(scope.row.totalIncrease) }}
             </span>
-            <span v-if="scope.row.totalDecrease > 0" class="decrease">
-              -{{ formatNumber(scope.row.totalDecrease) }}
+            <span v-if="scope.row.totalDecrease != 0" class="decrease">
+              {{ formatNumber(scope.row.totalDecrease) }}
             </span>
           </template>
         </el-table-column>
@@ -173,6 +168,9 @@ export default {
       marks: MarkItem[]
     }
 
+    // 在setup函数中添加新的响应式变量
+    const changeType = ref('')
+    const changeSort = ref('')
     const stockData = ref<StockDataItem[]>([])
     const loading = ref(false)
     const dateRange = ref<string[]>([])
@@ -235,11 +233,23 @@ export default {
       loading.value = true
       try {
         const [startDate, endDate] = dateRange.value
-        const response = await axios.get(`http://localhost:8080/api/stocks/changes`, {
-          params: {
-            start: startDate,
-            end: endDate,
-          },
+        const params: Record<string, string | number> = {
+          start: startDate,
+          end: endDate,
+        }
+
+        // 添加变动类型筛选
+        if (changeType.value) {
+          params.changeType = changeType.value
+        }
+
+        // 添加排序参数
+        if (changeSort.value) {
+          params.changeSort = changeSort.value
+        }
+
+        const response = await axios.get(`http://127.0.0.1:8080/api/stocks/changes`, {
+          params,
         })
 
         // 为每条记录添加额外属性
@@ -247,7 +257,7 @@ export default {
           ...item,
           chartLoading: false,
           stockDetail: null,
-          expanded: false, // 初始化展开状态为false
+          expanded: false,
         }))
 
         // 更新总记录数
@@ -292,12 +302,27 @@ export default {
       }
     }
 
+    // 添加排序处理函数
+    const handleSortChange = (column: { prop: string; order: string | null }) => {
+      console.log('排序:', column)
+      if (column.prop === 'changeAmount') {
+        if (column.order === 'ascending') {
+          changeSort.value = 'asc'
+        } else if (column.order === 'descending') {
+          changeSort.value = 'desc'
+        } else {
+          changeSort.value = ''
+        }
+        fetchData()
+      }
+    }
+
     const fetchStockDetail = async (row: StockDataItem) => {
       // 标记为加载中
       row.chartLoading = true
 
       try {
-        const response = await axios.get(`http://localhost:8080/api/stocks/${row.stockCode}/chart`)
+        const response = await axios.get(`http://127.0.0.1:8080/api/stocks/${row.stockCode}/chart`)
         row.stockDetail = response.data
 
         // 等待DOM更新后初始化图表
@@ -514,6 +539,9 @@ export default {
       handleExpandChange,
       handleSizeChange,
       handleCurrentChange,
+      // 添加新的返回值
+      changeType,
+      handleSortChange,
     }
   },
 }
