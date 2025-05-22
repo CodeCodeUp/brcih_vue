@@ -92,7 +92,7 @@
         <el-table-column prop="tradeDate" label="交易日期" width="120" />
         <el-table-column prop="stockCode" label="股票代码" width="120" />
         <el-table-column prop="stockName" label="股票名称" width="120" />
-        <el-table-column prop="changeAmount" label="变动数量" width="160" sortable>
+        <el-table-column prop="changeAmount" label="变动数量" width="160" sortable="custom">
           <template #default="scope">
             <span v-if="scope.row.totalIncrease != 0" class="increase">
               {{ formatNumber(scope.row.totalIncrease) }}
@@ -248,10 +248,9 @@ export default {
           params.changeSort = changeSort.value
         }
 
-        const response = await axios.get(`http://127.0.0.1:8080/api/stocks/changes`, {
+        const response = await axios.get(`http://116.205.244.106:8080/api/stocks/changes`, {
           params,
         })
-
         // 为每条记录添加额外属性
         stockData.value = response.data.map((item: StockDataItem) => ({
           ...item,
@@ -259,7 +258,6 @@ export default {
           stockDetail: null,
           expanded: false,
         }))
-
         // 更新总记录数
         totalCount.value = stockData.value.length
 
@@ -322,7 +320,9 @@ export default {
       row.chartLoading = true
 
       try {
-        const response = await axios.get(`http://127.0.0.1:8080/api/stocks/${row.stockCode}/chart`)
+        const response = await axios.get(
+          `http://116.205.244.106:8080/api/stocks/${row.stockCode}/chart`,
+        )
         row.stockDetail = response.data
 
         // 等待DOM更新后初始化图表
