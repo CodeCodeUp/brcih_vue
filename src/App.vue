@@ -50,7 +50,11 @@
                   class="stock-chart"
                 ></div>
               </div>
-
+              <div class="history-button-container">
+                <el-button type="primary" size="small" @click="showHistoryDetail(props.row)">
+                  查看所有历史数据
+                </el-button>
+              </div>
               <div
                 class="marks-detail"
                 v-if="
@@ -81,9 +85,16 @@
                       </span>
                     </template>
                   </el-table-column>
+                  <el-table-column prop="price" label="成交价" width="120" />
                   <el-table-column prop="changerName" label="变动人" />
                   <el-table-column prop="changerPosition" label="职位" />
                 </el-table>
+                <StockHistoryDetail
+                  v-model:visible="historyDetailVisible"
+                  :stock-code="selectedStockCode"
+                  :stock-name="selectedStockName"
+                  :changer-names="selectedChangerNames"
+                />
               </div>
             </div>
           </template>
@@ -131,9 +142,14 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import StockHistoryDetail from './components/StockHistoryDetail.vue'
 
 export default {
   name: 'DataMonitor',
+  // 注册组件
+  components: {
+    StockHistoryDetail,
+  },
   setup() {
     interface StockDataItem {
       totalIncrease: number
@@ -146,6 +162,7 @@ export default {
       chartLoading?: boolean
       stockDetail?: StockDetailData | null
       expanded?: boolean // 添加展开状态跟踪
+      price?: number // 添加价格属性
     }
 
     interface PriceDataItem {
@@ -154,6 +171,7 @@ export default {
     }
 
     interface MarkItem {
+      price: number
       tradeDate: string
       stockCode: string | null
       stockName: string | null
@@ -382,20 +400,41 @@ export default {
       // 处理增减持标记
       if (row.stockDetail.marks) {
         row.stockDetail.marks.forEach((mark) => {
-          // 查找最接近的价格数据点
-          const closestPriceIndex = row.stockDetail!.priceData.findIndex(
+          // 首先找到对应日期的所有价格数据点
+          const sameDayPrices = row.stockDetail!.priceData.filter(
             (price) => new Date(price.trackTime).toISOString().split('T')[0] === mark.tradeDate,
           )
 
-          if (closestPriceIndex >= 0) {
-            markData.push({
-              name: mark.changeType,
-              coord: [dates[closestPriceIndex], prices[closestPriceIndex]],
-              value: formatNumber(mark.totalPrice),
-              itemStyle: {
-                color: mark.changeType === '增持' ? '#f56c6c' : '#67c23a',
-              },
-            })
+          if (sameDayPrices.length > 0) {
+            // 如果标记有价格信息，找到最接近该价格的数据点
+            let closestPriceData = sameDayPrices[0]
+            let closestPriceIndex = row.stockDetail!.priceData.indexOf(closestPriceData)
+
+            // 如果有明确的价格信息，查找最接近的价格点
+            if (mark.price) {
+              let minDiff = Math.abs(sameDayPrices[0].currentPrice - mark.price)
+
+              for (const priceData of sameDayPrices) {
+                const priceDiff = Math.abs(priceData.currentPrice - mark.price)
+                if (priceDiff < minDiff) {
+                  minDiff = priceDiff
+                  closestPriceData = priceData
+                  closestPriceIndex = row.stockDetail!.priceData.indexOf(priceData)
+                }
+              }
+            }
+
+            if (closestPriceIndex >= 0) {
+              markData.push({
+                name: mark.changeType,
+                coord: [dates[closestPriceIndex], prices[closestPriceIndex]],
+                value: `${formatNumber(mark.totalPrice)} (¥${mark.price})`,
+                itemStyle: {
+                  color: mark.changeType === '增持' ? '#f56c6c' : '#67c23a',
+                },
+                //symbolSize: 45, // 稍微增大标记点尺寸以显示更多信息
+              })
+            }
           }
         })
       }
@@ -522,6 +561,41 @@ export default {
       window.addEventListener('resize', handleResize)
     })
 
+    // 添加历史详情相关状态
+    const historyDetailVisible = ref(false)
+    const selectedStockCode = ref('')
+    const selectedStockName = ref('')
+    const selectedChangerNames = ref('')
+
+    // 显示历史详情对话框
+    const showHistoryDetail = (row: {
+      stockCode: string
+      stockName: string
+      changerName: string
+      stockDetail: { marks: MarkItem[] }
+    }) => {
+      selectedStockCode.value = row.stockCode
+      selectedStockName.value = row.stockName
+
+      // 如果有变动人信息，提取姓名
+      if (row.changerName) {
+        selectedChangerNames.value = row.changerName
+      } else if (row.stockDetail && row.stockDetail.marks && row.stockDetail.marks.length > 0) {
+        // 从marks中提取所有不同的changerName，用逗号分隔
+        const uniqueChangers = [
+          ...new Set(
+            row.stockDetail.marks
+              .filter((mark) => mark.changerName)
+              .map((mark) => mark.changerName),
+          ),
+        ]
+        selectedChangerNames.value = uniqueChangers.join(',')
+      } else {
+        selectedChangerNames.value = ''
+      }
+
+      historyDetailVisible.value = true
+    }
     return {
       stockData,
       displayData,
@@ -542,6 +616,12 @@ export default {
       // 添加新的返回值
       changeType,
       handleSortChange,
+      // 添加新的返回值
+      historyDetailVisible,
+      selectedStockCode,
+      selectedStockName,
+      selectedChangerNames,
+      showHistoryDetail,
     }
   },
 }
