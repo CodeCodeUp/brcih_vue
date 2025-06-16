@@ -6,7 +6,7 @@
       style="width: 100%"
       :header-cell-style="headerStyle"
       v-loading="loading"
-      @expand-change="$emit('expand-change', $event, arguments[1])"
+      @expand-change="$emit('expand-change', $event)"
       @sort-change="$emit('sort-change', $event)"
       :row-key="(row: any) => row.stockCode + row.tradeDate"
     >

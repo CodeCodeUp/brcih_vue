@@ -36,7 +36,7 @@ export const buildApiUrl = (endpoint: string, params?: Record<string, string>): 
 }
 
 // Helper function to build query string
-export const buildQueryString = (params: Record<string, string | number>): string => {
+export const buildQueryString = (params: any): string => {
   const searchParams = new URLSearchParams()
 
   Object.entries(params).forEach(([key, value]) => {

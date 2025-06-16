@@ -22,7 +22,7 @@ apiClient.interceptors.request.use(
   (error) => {
     console.error('API Request Error:', error)
     return Promise.reject(error)
-  }
+  },
 )
 
 // Response interceptor
@@ -33,7 +33,7 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Response Error:', error)
-    
+
     // Show user-friendly error messages
     if (error.response) {
       const status = error.response.status
@@ -55,9 +55,9 @@ apiClient.interceptors.response.use(
     } else {
       ElMessage.error('网络错误，请检查网络连接')
     }
-    
+
     return Promise.reject(error)
-  }
+  },
 )
 
 /**
@@ -70,9 +70,9 @@ export const fetchStockChanges = async (params: StockChangesParams): Promise<Sto
     const url = buildApiUrl(API_ENDPOINTS.STOCK_CHANGES)
     const queryString = buildQueryString(params)
     const fullUrl = queryString ? `${url}?${queryString}` : url
-    
+
     const response = await apiClient.get(fullUrl)
-    
+
     // Add additional properties to each item
     return response.data.map((item: StockDataItem) => ({
       ...item,
@@ -110,7 +110,7 @@ export const fetchStockChart = async (stockCode: string): Promise<StockDetailDat
  */
 export const fetchStockHistoryDetail = async (
   stockCode: string,
-  changerNames?: string
+  changerNames?: string,
 ): Promise<StockDetailData> => {
   try {
     const url = buildApiUrl(API_ENDPOINTS.STOCK_HISTORY_DETAIL)
@@ -120,7 +120,7 @@ export const fetchStockHistoryDetail = async (
     }
     const queryString = buildQueryString(params)
     const fullUrl = `${url}?${queryString}`
-    
+
     const response = await apiClient.get(fullUrl)
     return response.data
   } catch (error) {
@@ -139,14 +139,14 @@ export const fetchStockHistoryDetail = async (
 export const retryRequest = async <T>(
   fn: () => Promise<T>,
   retries: number = API_CONFIG.retries,
-  delay: number = API_CONFIG.retryDelay
+  delay: number = API_CONFIG.retryDelay,
 ): Promise<T> => {
   try {
     return await fn()
   } catch (error) {
     if (retries > 0) {
       console.log(`Retrying request... ${retries} attempts left`)
-      await new Promise(resolve => setTimeout(resolve, delay))
+      await new Promise((resolve) => setTimeout(resolve, delay))
       return retryRequest(fn, retries - 1, delay)
     }
     throw error
