@@ -4,6 +4,10 @@
     :title="`${stockName} (${stockCode}) 所有历史数据`"
     width="80%"
     destroy-on-close
+    :z-index="3000"
+    append-to-body
+    :modal="true"
+    class="stock-history-dialog"
   >
     <div v-loading="loading">
       <div class="history-chart-container">
@@ -180,5 +184,25 @@ export default {
 .decrease {
   color: #67c23a;
   font-weight: 600;
+}
+</style>
+
+<style>
+/* Global styles for the dialog to ensure proper z-index layering */
+.stock-history-dialog {
+  z-index: 3000 !important;
+}
+
+.stock-history-dialog .el-dialog {
+  z-index: 3000 !important;
+}
+
+.stock-history-dialog .el-overlay {
+  z-index: 2999 !important;
+}
+
+/* Ensure the dialog appears above all other elements */
+.el-dialog__wrapper.stock-history-dialog {
+  z-index: 3000 !important;
 }
 </style>

@@ -1,29 +1,21 @@
 <template>
   <div class="stock-detail-row" v-loading="row.chartLoading">
     <div class="chart-container">
-      <div
-        :id="`chart-${row.stockCode}-${row.tradeDate}`"
-        class="stock-chart"
-      ></div>
+      <div :id="`chart-${row.stockCode}-${row.tradeDate}`" class="stock-chart"></div>
     </div>
-    
+
     <div class="history-button-container">
       <el-button type="primary" size="small" @click="showHistoryDetail">
         查看所有历史数据
       </el-button>
     </div>
-    
+
     <div
       class="marks-detail"
       v-if="row.stockDetail && row.stockDetail.marks && row.stockDetail.marks.length > 0"
     >
       <h4>增减持记录</h4>
-      <el-table
-        :data="row.stockDetail.marks"
-        stripe
-        size="small"
-        style="width: 100%"
-      >
+      <el-table :data="row.stockDetail.marks" stripe size="small" style="width: 100%">
         <el-table-column prop="tradeDate" label="交易日期" width="120" />
         <el-table-column prop="changeType" label="变动类型" width="100">
           <template #default="scope">
@@ -88,13 +80,17 @@ export default defineComponent({
       // Extract changer names
       if (props.row.changerName) {
         selectedChangerNames.value = props.row.changerName
-      } else if (props.row.stockDetail && props.row.stockDetail.marks && props.row.stockDetail.marks.length > 0) {
+      } else if (
+        props.row.stockDetail &&
+        props.row.stockDetail.marks &&
+        props.row.stockDetail.marks.length > 0
+      ) {
         // Extract all unique changer names from marks
         const uniqueChangers = [
           ...new Set(
             props.row.stockDetail.marks
               .filter((mark: MarkItem) => mark.changerName)
-              .map((mark: MarkItem) => mark.changerName)
+              .map((mark: MarkItem) => mark.changerName),
           ),
         ]
         selectedChangerNames.value = uniqueChangers.join(',')

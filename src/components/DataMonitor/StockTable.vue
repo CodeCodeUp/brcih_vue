@@ -110,6 +110,9 @@ export default defineComponent({
   margin-top: 20px;
   border-radius: 4px;
   overflow: hidden;
+  /* Ensure dialogs can appear above table content */
+  position: relative;
+  z-index: 1;
 }
 
 .pagination-container {

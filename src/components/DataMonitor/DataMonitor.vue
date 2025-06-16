@@ -65,7 +65,7 @@ export default defineComponent({
     return {
       // Stock data composable
       ...stockDataComposable,
-      
+
       // Chart composable
       ...chartComposable,
     }
@@ -80,6 +80,9 @@ export default defineComponent({
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   padding: 20px;
   width: 100%;
+  /* Ensure proper stacking context for child dialogs */
+  position: relative;
+  z-index: 1;
 }
 
 .monitor-header {
