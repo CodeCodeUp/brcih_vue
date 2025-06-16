@@ -42,9 +42,11 @@
 
 <script lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { fetchStockHistoryDetail } from '@/services/stockApi'
+import { prepareChartData, createChartOption, initChart } from '@/utils/chart'
+import { formatNumber } from '@/utils/formatters'
+import type { StockDetailData } from '@/types/stock'
 
 export default {
   name: 'StockHistoryDetail',
@@ -58,13 +60,10 @@ export default {
   setup(props, { emit }) {
     const dialogVisible = ref(false)
     const loading = ref(false)
-    const stockDetail = ref<{
-      marks?: { tradeDate: string; changeType: string; totalPrice: number; price?: number }[]
-      priceData?: { trackTime: string; currentPrice: number }[]
-    } | null>(null)
+    const stockDetail = ref<StockDetailData | null>(null)
     let chartInstance: echarts.ECharts | null = null
 
-    // 监听visible属性变化
+    // Watch visible property changes
     watch(
       () => props.visible,
       (newValue) => {
@@ -75,7 +74,7 @@ export default {
       },
     )
 
-    // 监听对话框关闭
+    // Watch dialog close
     watch(
       () => dialogVisible.value,
       (newValue) => {
@@ -90,195 +89,46 @@ export default {
 
       loading.value = true
       try {
-        const response = await axios.get(
-          `http://116.205.244.106:8080/data/api/detail/chart?code=${props.stockCode}&name=${props.changerNames || ''}`,
-        )
-        stockDetail.value = response.data
+        const data = await fetchStockHistoryDetail(props.stockCode, props.changerNames)
+        stockDetail.value = data
 
         nextTick(() => {
-          initChart()
+          initHistoryChart()
         })
       } catch (error) {
-        console.error('获取历史数据失败', error)
-        ElMessage.error('获取历史数据失败，请重试')
+        console.error('Failed to fetch history data:', error)
+        stockDetail.value = null
       } finally {
         loading.value = false
       }
     }
 
-    const initChart = () => {
+    const initHistoryChart = () => {
       if (!stockDetail.value || !stockDetail.value.priceData) return
 
       const chartDom = document.getElementById('history-chart')
       if (!chartDom) {
-        console.error('图表容器不存在')
+        console.error('Chart container does not exist')
         return
       }
 
-      // 销毁旧的图表实例
+      // Dispose old chart instance
       if (chartInstance) {
         chartInstance.dispose()
       }
 
-      // 初始化图表
-      chartInstance = echarts.init(chartDom)
+      // Prepare chart data
+      const { dates, prices, markData } = prepareChartData(stockDetail.value)
 
-      // 准备数据
-      const dates: string[] = []
-      const prices: number[] = []
-      const markData: {
-        name: string
-        coord: [string, number]
-        value: string
-        itemStyle: { color: string }
-      }[] = []
+      // Create chart option
+      const title = `${props.stockName} (${props.stockCode}) 价格走势`
+      const option = createChartOption(title, dates, prices, markData)
 
-      stockDetail.value.priceData.forEach((item) => {
-        const date = new Date(item.trackTime).toLocaleDateString()
-        const time = new Date(item.trackTime).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-        const dateTime = `${date} ${time}`
-
-        dates.push(dateTime)
-        prices.push(item.currentPrice)
-      })
-
-      // 处理增减持标记
-      if (stockDetail.value.marks) {
-        stockDetail.value.marks.forEach((mark) => {
-          // 首先找到对应日期的所有价格数据点
-          const sameDayPrices =
-            stockDetail.value?.priceData?.filter(
-              (price) => new Date(price.trackTime).toISOString().split('T')[0] === mark.tradeDate,
-            ) || []
-
-          if (sameDayPrices.length > 0) {
-            // 如果标记有价格信息，找到最接近该价格的数据点
-            let closestPriceData = sameDayPrices[0]
-            let closestPriceIndex = stockDetail.value?.priceData?.indexOf(closestPriceData) ?? -1
-
-            // 如果有明确的价格信息，查找最接近的价格点
-            if (mark.price) {
-              let minDiff = Math.abs(sameDayPrices[0].currentPrice - mark.price)
-
-              for (const priceData of sameDayPrices) {
-                const priceDiff = Math.abs(priceData.currentPrice - mark.price)
-                if (priceDiff < minDiff) {
-                  minDiff = priceDiff
-                  closestPriceData = priceData
-                  closestPriceIndex = stockDetail.value?.priceData?.indexOf(priceData) ?? -1
-                }
-              }
-            }
-
-            if (closestPriceIndex >= 0) {
-              markData.push({
-                name: mark.changeType,
-                coord: [dates[closestPriceIndex], prices[closestPriceIndex]],
-                value: `${formatNumber(mark.totalPrice)} (¥${mark.price})`,
-                itemStyle: {
-                  color: mark.changeType === '增持' ? '#f56c6c' : '#67c23a',
-                },
-              })
-            }
-          }
-        })
-      }
-
-      // 配置图表选项
-      const option = {
-        title: {
-          text: `${props.stockName} (${props.stockCode}) 价格走势`,
-          left: 'center',
-          textStyle: {
-            fontSize: 14,
-          },
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true,
-        },
-        tooltip: {
-          trigger: 'axis',
-          formatter: function (params: { name: string; marker: string; value: number }[]) {
-            let result = params[0].name + '<br/>'
-            result += params[0].marker + ' 价格: ' + params[0].value
-
-            // 查找是否有标记点
-            const markInfo = markData.find((mark) => mark.coord[0] === params[0].name)
-            if (markInfo) {
-              result +=
-                '<br/><span style="color:' +
-                markInfo.itemStyle.color +
-                '">● ' +
-                markInfo.name +
-                ': ' +
-                markInfo.value +
-                '</span>'
-            }
-
-            return result
-          },
-        },
-        xAxis: {
-          type: 'category',
-          data: dates,
-          axisLabel: {
-            interval: Math.floor(dates.length / 8),
-            formatter: function (value: string) {
-              return value.split(' ')[0] + '\n' + value.split(' ')[1]
-            },
-          },
-        },
-        yAxis: {
-          type: 'value',
-          scale: true,
-          axisLabel: {
-            formatter: '{value}',
-          },
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            start: 0,
-            end: 100,
-          },
-          {
-            start: 0,
-            end: 100,
-          },
-        ],
-        series: [
-          {
-            type: 'line',
-            data: prices,
-            smooth: true,
-            lineStyle: {
-              width: 2,
-              color: '#409EFF',
-            },
-            markPoint: {
-              symbol: 'pin',
-              symbolSize: 40,
-              data: markData,
-            },
-          },
-        ],
-      }
-
-      // 设置图表选项
-      chartInstance.setOption(option)
+      // Initialize chart
+      chartInstance = initChart(chartDom, option)
     }
 
-    const formatNumber = (num: number | bigint) => {
-      return new Intl.NumberFormat('zh-CN').format(num)
-    }
-
-    // 监听窗口大小变化
+    // Handle window resize
     const handleResize = () => {
       if (chartInstance) {
         chartInstance.resize()
