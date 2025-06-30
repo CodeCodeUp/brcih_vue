@@ -48,6 +48,7 @@ export interface StockChangesParams {
   end: string
   changeType?: string
   changeSort?: string
+  totalPrice?: number
 }
 
 // Chart mark data interface

@@ -6,7 +6,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchStockChanges } from '@/services/stockApi'
-import { getCurrentMonthRange, getDateRangeFromDaysAgo, getDateRangeFromMonthsAgo } from '@/utils/formatters'
+import {
+  getCurrentMonthRange,
+  getDateRangeFromDaysAgo,
+  getDateRangeFromMonthsAgo,
+} from '@/utils/formatters'
 import type { StockDataItem, DateShortcut, SortColumn, ChangeType, SortOrder } from '@/types/stock'
 
 export const useStockData = () => {
@@ -14,8 +18,9 @@ export const useStockData = () => {
   const stockData = ref<StockDataItem[]>([])
   const loading = ref(false)
   const dateRange = ref<string[]>([])
-  const changeType = ref<ChangeType>('')
+  const changeType = ref<ChangeType>('增持')
   const changeSort = ref<SortOrder>('')
+  const totalPrice = ref<number>(100000)
 
   // Pagination state
   const currentPage = ref(1)
@@ -78,6 +83,7 @@ export const useStockData = () => {
         end: endDate,
         ...(changeType.value && { changeType: changeType.value }),
         ...(changeSort.value && { changeSort: changeSort.value }),
+        ...(totalPrice.value && { totalPrice: totalPrice.value }),
       }
 
       const data = await fetchStockChanges(params)
@@ -165,14 +171,15 @@ export const useStockData = () => {
     dateRange,
     changeType,
     changeSort,
+    totalPrice,
     currentPage,
     pageSize,
     totalCount,
-    
+
     // Configuration
     shortcuts,
     headerStyle,
-    
+
     // Methods
     fetchData,
     handleSortChange,
